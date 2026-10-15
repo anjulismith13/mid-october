@@ -163,7 +163,7 @@ function App() {
       </nav>
       <section id="dashboard-panel-summary" className="tab-panel" role="tabpanel" aria-labelledby="dashboard-tab-summary" hidden={activeTab !== 'summary'}>
         {summary.recordCount === 0 ? <div className="empty-state"><h2>No payroll records found</h2><p>The CSV has a valid header but contains no payroll rows. Summary statistics, employee metrics, and anomaly counts are unavailable until records are present.</p></div> : <>
-        <section className="intro"><div><h2>Recorded payroll at a glance</h2><p>As-recorded amounts across {summary.recordCount} weekly payroll rows.</p></div>
+        <section className="intro"><div><h2>Recorded payroll at a glance</h2><p>As-recorded amounts across {summary.recordCount} weekly payroll row{summary.recordCount === 1 ? '' : 's'}.</p></div>
           <div className="date-range"><span>WEEK ENDINGS</span><strong>{summary.weekStart && summary.weekEnd ? `${dateFormat.format(summary.weekStart)} – ${dateFormat.format(summary.weekEnd)}` : 'No recorded weeks'}</strong></div>
         </section>
         <p className="reported-note">Amounts shown are reported values. Estimated benefits assume the benefits rate applies to all recorded hours.</p>
@@ -173,13 +173,13 @@ function App() {
           <Card label="Total hours" value={number.format(summary.totalHours)} note={`${number.format(summary.standardHours)} standard · ${number.format(summary.overtimeHours)} OT`} />
           <Card label="Overtime share" value={percent.format(summary.overtimeShare)} note="Of recorded hours" />
           <Card label="Apprentice share" value={percent.format(summary.apprenticeShare)} note="Of recorded hours" />
-          <Card label="Employees" value={number.format(summary.employeeCount)} note={`${summary.distinctWeekCount} distinct weeks`} />
+          <Card label="Employees" value={number.format(summary.employeeCount)} note={`${summary.distinctWeekCount} distinct week${summary.distinctWeekCount === 1 ? '' : 's'}`} />
         </section>
         <section className="detail-strip">
           <div><span>Records</span><strong>{summary.recordCount}</strong></div>
           <div><span>Daily hours, including zero days</span><strong>{summary.dailyHours ? `${number.format(summary.dailyHours.min)}–${number.format(summary.dailyHours.max)} ` : ''}<small>{summary.dailyHours ? `mean ${number.format(summary.dailyHours.mean)}` : 'No recorded days'}</small></strong></div>
           <div><span>Rows to review</span><strong>{data.rowAnomalies.length}</strong></div>
-          <div><span>Name identity issues</span><strong>{data.identityIssues.length} employees</strong></div>
+          <div><span>Name identity issues</span><strong>{data.identityIssues.length} employee{data.identityIssues.length === 1 ? '' : 's'}</strong></div>
         </section>
         <footer>All reported rows remain in as-recorded totals. Daily statistics include all seven days of recorded weeks, including zeros; missing weeks are excluded.</footer>
         </>}
@@ -199,11 +199,11 @@ function App() {
           <div className="section-heading"><div><p className="eyebrow">DATA QUALITY</p><h2>Review signals</h2></div><span>Heuristics for review, not legal or compliance conclusions</span></div>
           <div className="signals">
             {ANOMALY_TYPES.map((type) => <div className={`signal-card signal-${type.tone}`} key={type.code}>
-              <span>{type.label}</span><strong>{data.anomalyCounts[type.code]}</strong><small>affected rows</small>
+              <span>{type.label}</span><strong>{data.anomalyCounts[type.code]}</strong><small>affected row{data.anomalyCounts[type.code] === 1 ? '' : 's'}</small>
             </div>)}
           </div>
           <p className="signal-note">Counts represent affected source rows; one row may contribute to multiple anomaly types. Employee name issues are listed separately.</p>
-          {data.identityIssues.length > 0 && <div className="identity-list"><h3>Employee name variations</h3>{data.identityIssues.map((issue) => <div className="identity-issue" key={issue.employeeId}><p><b>Employee ID {issue.employeeId}</b></p><ul>{issue.variants.map((variant) => <li key={variant.name}><span>{JSON.stringify(variant.name)}</span> · {variant.occurrences} occurrences · source row{variant.sourceRows.length === 1 ? '' : 's'} {variant.sourceRows.join(', ')}</li>)}</ul></div>)}</div>}
+          {data.identityIssues.length > 0 && <div className="identity-list"><h3>Employee name variations</h3>{data.identityIssues.map((issue) => <div className="identity-issue" key={issue.employeeId}><p><b>Employee ID {issue.employeeId}</b></p><ul>{issue.variants.map((variant) => <li key={variant.name}><span>{JSON.stringify(variant.name)}</span> · {variant.occurrences} occurrence{variant.occurrences === 1 ? '' : 's'} · source row{variant.sourceRows.length === 1 ? '' : 's'} {variant.sourceRows.join(', ')}</li>)}</ul></div>)}</div>}
           <div className="table-wrap"><table><thead><tr><th>Source row</th><th>Employee</th><th>Week ending</th><th>Type</th><th>Reason details</th></tr></thead>
             <tbody>{data.rowAnomalies.map((row) => {
               const rowCodes = new Set(row.reasons.map((reason) => reason.code))
