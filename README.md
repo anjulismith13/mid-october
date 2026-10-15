@@ -12,7 +12,7 @@ npm ci
 npm run dev
 ```
 
-The development server prints its local URL. To check types and create a production build:
+The development server prints its local URL. In another terminal, run the checks and production build:
 
 ```sh
 npm run typecheck
@@ -26,7 +26,7 @@ npm test
 
 React renders the three dashboard tabs, TypeScript defines the payroll records and calculations, Vite serves and bundles the app, and Papa Parse reads CSV text. The app starts with `public/payroll_data.csv`; a local file picker can load another CSV through the same parser and calculation pipeline, and a button restores the bundled sample. Selected files are read in-browser and are not uploaded. The source file `payroll_data (3).csv` is retained unchanged; the public file is a byte-identical copy used by the app.
 
-Browser-side parsing fits this small, fixed 263-row sample: it keeps the app simple and avoids a backend, database, or separate data service. The parser requires the expected columns, validates finite numeric values and real `MM/DD/YYYY` dates, and reports source row/column issues. A file with any bad record is not used for totals. Header-only files produce a clear empty state.
+Browser-side parsing fits this small, fixed 263-row sample: it keeps the app simple and avoids a backend, database, or separate data service. The parser requires `employee_name`, `employee_id`, `level`, `occupation`, `week_ending`; `mon_st_hours` through `sun_st_hours`; `mon_ot_hours` through `sun_ot_hours`; and `standard_rate`, `overtime_rate`, `benefits_rate`. Column order may vary. Dates must be real calendar dates in `MM/DD/YYYY`; numeric cells must contain finite numbers, and blanks are errors rather than zero. Employee IDs remain strings. The file picker reads locally in the browser, shows the active filename and record count, and runs the same parser and calculations as the bundled sample. Invalid input clears prior results and reports source row/column errors; a valid header-only file displays an empty state. “Restore sample data” reloads the bundled CSV after any upload state. Selecting no file leaves current data unchanged.
 
 ## Calculations and denominators
 
@@ -56,20 +56,21 @@ Zero-hour days and low weekly hours do not trigger anomalies by themselves. Miss
 
 The implementation prioritizes traceable input validation, explicit calculation denominators, as-recorded totals, employee history comparisons, and reviewable anomaly explanations. A bundled browser CSV and local file picker keep the app lightweight, but it is not a multi-user or continuously updated payroll system. The employee and anomaly tables preserve detail and use horizontal scrolling on narrow screens. Vitest unit tests are included; there is no automated end-to-end test suite, charting library, backend, or deployment.
 
-### Deferred stretch goals
+### Deliberate scope and limitations
 
-Variable-CSV tests, a local CSV upload flow, and anomaly-type labels were completed. These goals were considered but left out of the deadline build:
+The dashboard is a local, single-user analysis tool, not a payroll system of record. CSVs must use the fixed schema; there is no column mapping, persistence, backend, or automated browser test suite. The employee and anomaly tables preserve detail and scroll horizontally on narrow screens. Employee overview columns can be sorted by employee name, weeks recorded, flagged weeks, total hours, and wage spend. CSVs have no currency field, so USD display is an assumption to confirm.
+
+Optional ideas remain deferred:
 
 - **Severity ranking for anomaly rows:** A review-priority score would need a transparent, defensible comparison across different anomaly types. It was treated as optional because the heuristic could imply more certainty or financial significance than it supports, and there was little time left to implement and verify it.
 - **Charts for employee hours or wage rates:** A useful chart needs employee selection, chronological context, rate baselines, and careful treatment of missing weeks and changing rates. The additional behavior and verification effort did not fit the remaining time.
-- **Sortable employee-overview columns:** Sorting was considered as a small usability improvement, but was deferred behind data validation, upload, anomaly explanations, and final verification.
-
-The UI formats amounts as USD, but the CSV has no currency field; confirm the currency before interpreting costs. Open data and payroll-policy questions are listed in [CLIENT_QUESTIONS.md](CLIENT_QUESTIONS.md). Possible next steps are to resolve those questions, confirm the weekday/week-ending convention and alert thresholds with the project manager, then add focused filtering or trend views if the reviewer needs them.
+Open data and payroll-policy questions are listed in [CLIENT_QUESTIONS.md](CLIENT_QUESTIONS.md). Confirm currency, weekday/week-ending convention, and alert thresholds before interpreting results as business policy.
 
 ## Verification performed
 
 - Independently recalculated the bundled CSV with a temporary Python standard-library script, separate from the production aggregation functions. Confirmed 263 rows, 23 employee IDs, 15 week endings from March 1 through June 7, 2025; 9,243.4 standard hours; 713.4 overtime hours; 9,956.8 total hours; $429,214.63 wage spend; $161,251.50 estimated benefits; 7.2% overtime share; and 22.6% apprentice share.
 - Independently confirmed 6 rate-outlier rows, 4 long-day rows, 4 long-week rows, 14 distinct rows across those three rules, and 3 employee IDs with inconsistent names.
 - Spot-checked a recorded-week wage calculation, one employee's seven-days-including-zero min/mean/max and unweighted rate statistics, high- and low-rate rows, a long day and long week, name-variant occurrence counts, and flagged-week counts.
-- Used temporary fixtures to check exact 25%/16-hour/60-hour boundaries, greater-than-threshold cases, zero-baseline handling, a valid header-only CSV, a blank numeric cell, and an invalid calendar date. No fixtures changed the supplied CSV.
-- Confirmed a clean `npm ci` install, TypeScript type checking, a production build, and `git diff --check`. Browser review covered all three tabs, keyboard tab navigation, and horizontal table scrolling. The Vitest suite is present but was not run during this verification pass.
+- Synthetic Vitest fixtures cover quoted comma names, leading-zero IDs, reordered/missing columns, blank and nonnumeric cells, invalid dates, header-only input, summary and employee calculations, recorded zero days, missing weeks, rate baselines and threshold edges, zero medians, long day/week edges, negative values, duplicate weeks, identity variants, issue counts, shared file preparation, and numeric sorting/tie ordering. A bundled CSV regression checks key summary totals and anomaly counts.
+- Browser checks are manual. This pass verifies the sample summary and anomaly presentation, employee sorting in both directions, and tab selection/navigation. Upload flow checks remain pending where browser file selection is unavailable.
+- The automated suite has no browser end-to-end coverage. Standard Node.js/npm commands use the checked-in npm lockfile; setup does not depend on machine-specific runtime paths.
