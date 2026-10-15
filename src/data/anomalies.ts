@@ -66,13 +66,13 @@ export function detectRowAnomalies(records: PayrollRecord[]): RowAnomaly[] {
     for (const day of row.daily) {
       if (day.standard < 0) add(row, { code: 'invalid-value', column: `${day.day}_st_hours`, day: day.day, message: 'Standard hours are negative.' })
       if (day.overtime < 0) add(row, { code: 'invalid-value', column: `${day.day}_ot_hours`, day: day.day, message: 'Overtime hours are negative.' })
-      if (day.total > 24) add(row, { code: 'invalid-value', day: day.day, message: `Daily total is ${day.total} hours, above 24.` })
-      if (day.total > 16) add(row, { code: 'long-day', day: day.day, message: `Daily total is ${day.total} hours, above 16.` })
+      if (day.total > 24) add(row, { code: 'invalid-value', day: day.day, message: `Daily total is ${day.total.toFixed(1)} hours, above 24.` })
+      if (day.total > 16) add(row, { code: 'long-day', day: day.day, message: `Daily total is ${day.total.toFixed(1)} hours, above 16.` })
     }
     for (const rate of RATE_KEYS) {
       if (row[rate.key] < 0) add(row, { code: 'invalid-value', column: rate.column, message: `${rate.label} is negative.` })
     }
-    if (row.totalHours > 60) add(row, { code: 'long-week', message: `Weekly total is ${row.totalHours} hours, above 60.` })
+    if (row.totalHours > 60) add(row, { code: 'long-week', message: `Weekly total is ${row.totalHours.toFixed(1)} hours, above 60.` })
   }
 
   const weekGroups = new Map<string, PayrollRecord[]>()
