@@ -76,7 +76,7 @@ function App() {
   }
 
   return <main className="shell">
-    <header className="topbar"><div className="mark">P</div><div><p className="eyebrow">PAYROLL REVIEW</p><h1>Payroll overview</h1></div><span className="source-label">Bundled CSV · browser processed</span></header>
+    <header className="topbar"><div className="mark">P</div><div><p className="eyebrow">DASHBOARD</p><h1>Payroll Analysis</h1></div><span className="source-label">Bundled CSV · browser processed</span></header>
     {loading && <div className="loading">Loading payroll records…</div>}
     {loadError && <section className="load-error"><h2>Unable to load data</h2><p>{loadError}</p></section>}
     {issues && <IssueList issues={issues} />}
@@ -133,11 +133,11 @@ function App() {
         <section className="panel">
           <div className="section-heading"><div><p className="eyebrow">DATA QUALITY</p><h2>Review signals</h2></div><span>Heuristics for review, not legal or compliance conclusions</span></div>
           <div className="signals">
-            <div><span>Rate outlier affected rows</span><strong>{data.anomalyCounts['rate-outlier']}</strong></div>
-            <div><span>Long-day affected rows</span><strong>{data.anomalyCounts['long-day']}</strong></div>
-            <div><span>Long-week affected rows</span><strong>{data.anomalyCounts['long-week']}</strong></div>
-            <div><span>Invalid-value affected rows</span><strong>{data.anomalyCounts['invalid-value']}</strong></div>
-            <div><span>Duplicate employee-week affected rows</span><strong>{data.anomalyCounts['duplicate-employee-week']}</strong></div>
+            <div><span>Rate outliers</span><strong>{data.anomalyCounts['rate-outlier']}</strong></div>
+            <div><span>Long-days</span><strong>{data.anomalyCounts['long-day']}</strong></div>
+            <div><span>Long-weeks</span><strong>{data.anomalyCounts['long-week']}</strong></div>
+            <div><span>Invalid-values</span><strong>{data.anomalyCounts['invalid-value']}</strong></div>
+            <div><span>Duplicate employee-weeks</span><strong>{data.anomalyCounts['duplicate-employee-week']}</strong></div>
           </div>
           {data.identityIssues.length > 0 && <div className="identity-list"><h3>Employee name variations</h3>{data.identityIssues.map((issue) => <div className="identity-issue" key={issue.employeeId}><p><b>Employee ID {issue.employeeId}</b></p><ul>{issue.variants.map((variant) => <li key={variant.name}><span>{JSON.stringify(variant.name)}</span> · {variant.occurrences} occurrences · source rows {variant.sourceRows.join(', ')}</li>)}</ul></div>)}</div>}
           <div className="table-wrap"><table><thead><tr><th>Source row</th><th>Employee</th><th>Week ending</th><th>Review reasons</th></tr></thead>
