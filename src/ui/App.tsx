@@ -1,6 +1,6 @@
 import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { prepareDashboardCsv, preparePayrollFile, type DashboardData } from '../data/prepareDashboard'
-import type { ParseIssue } from '../data/types'
+import type { AnomalyCode, ParseIssue } from '../data/types'
 
 const TABS = [
   { id: 'summary', label: 'Summary Statistics' },
@@ -8,6 +8,14 @@ const TABS = [
   { id: 'anomalies', label: 'Anomaly Detection' },
 ] as const
 type TabId = (typeof TABS)[number]['id']
+
+const ANOMALY_TYPES: Array<{ code: AnomalyCode; label: string; tone: string }> = [
+  { code: 'rate-outlier', label: 'Rate outlier', tone: 'rate-outlier' },
+  { code: 'long-day', label: 'Long day', tone: 'long-day' },
+  { code: 'long-week', label: 'Long week', tone: 'long-week' },
+  { code: 'invalid-value', label: 'Invalid value', tone: 'invalid-value' },
+  { code: 'duplicate-employee-week', label: 'Duplicate employee-week', tone: 'duplicate-employee-week' },
+]
 
 const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 })
@@ -180,16 +188,20 @@ function App() {
         <section className="panel">
           <div className="section-heading"><div><p className="eyebrow">DATA QUALITY</p><h2>Review signals</h2></div><span>Heuristics for review, not legal or compliance conclusions</span></div>
           <div className="signals">
-            <div><span>Rate outliers</span><strong>{data.anomalyCounts['rate-outlier']}</strong></div>
-            <div><span>Long-days</span><strong>{data.anomalyCounts['long-day']}</strong></div>
-            <div><span>Long-weeks</span><strong>{data.anomalyCounts['long-week']}</strong></div>
-            <div><span>Invalid-values</span><strong>{data.anomalyCounts['invalid-value']}</strong></div>
-            <div><span>Duplicate employee-weeks</span><strong>{data.anomalyCounts['duplicate-employee-week']}</strong></div>
+            {ANOMALY_TYPES.map((type) => <div className={`signal-card signal-${type.tone}`} key={type.code}>
+              <span>{type.label}</span><strong>{data.anomalyCounts[type.code]}</strong><small>affected rows</small>
+            </div>)}
           </div>
+          <p className="signal-note">Counts represent affected source rows; one row may contribute to multiple anomaly types. Employee name issues are listed separately.</p>
           {data.identityIssues.length > 0 && <div className="identity-list"><h3>Employee name variations</h3>{data.identityIssues.map((issue) => <div className="identity-issue" key={issue.employeeId}><p><b>Employee ID {issue.employeeId}</b></p><ul>{issue.variants.map((variant) => <li key={variant.name}><span>{JSON.stringify(variant.name)}</span> · {variant.occurrences} occurrences · source row{variant.sourceRows.length === 1 ? '' : 's'} {variant.sourceRows.join(', ')}</li>)}</ul></div>)}</div>}
-          <div className="table-wrap"><table><thead><tr><th>Source row</th><th>Employee</th><th>Week ending</th><th>Review reasons</th></tr></thead>
-            <tbody>{data.rowAnomalies.map((row) => <tr key={row.sourceRow}><td>#{row.sourceRow}</td><td>{row.employeeNameOriginal} <small>ID {row.employeeId}</small></td><td>{dateFormat.format(row.weekEnding)}</td><td>{row.reasons.map((reason, index) => <span className="tag" key={`${reason.code}-${reason.column ?? reason.day ?? index}`}>{reason.message}</span>)}</td></tr>)}
-              {data.rowAnomalies.length === 0 && <tr><td colSpan={4}>No row-level review signals found.</td></tr>}</tbody>
+          <div className="table-wrap"><table><thead><tr><th>Source row</th><th>Employee</th><th>Week ending</th><th>Type</th><th>Reason details</th></tr></thead>
+            <tbody>{data.rowAnomalies.map((row) => {
+              const rowCodes = new Set(row.reasons.map((reason) => reason.code))
+              return <tr key={row.sourceRow}><td>#{row.sourceRow}</td><td>{row.employeeNameOriginal} <small>ID {row.employeeId}</small></td><td>{dateFormat.format(row.weekEnding)}</td>
+                <td>{ANOMALY_TYPES.filter((type) => rowCodes.has(type.code)).map((type) => <span className={`anomaly-badge anomaly-${type.tone}`} key={type.code}>{type.label}</span>)}</td>
+                <td>{row.reasons.map((reason, index) => <span className="tag" key={`${reason.code}-${reason.column ?? reason.day ?? index}`}>{reason.message}</span>)}</td></tr>
+            })}
+              {data.rowAnomalies.length === 0 && <tr><td colSpan={5}>No row-level review signals found.</td></tr>}</tbody>
           </table></div>
         </section>
       </section>
