@@ -5,6 +5,15 @@ candidate-email*.md
 dist/
 node_modules/
 .pnpm-store/
+.npm/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Local environment and log files
+.env*
+!.env.example
+*.log
 
 # Local operating-system files
 .DS_Store
