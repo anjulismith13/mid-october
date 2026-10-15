@@ -1,10 +1,10 @@
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { detectNameInconsistencies, detectRowAnomalies } from '../data/anomalies'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { calculateAnomalyAffectedRowCounts, detectNameInconsistencies, detectRowAnomalies } from '../data/anomalies'
 import { parsePayrollCsv } from '../data/parsePayroll'
 import { calculateEmployeeMetrics, calculateSummary } from '../data/statistics'
 import type { EmployeeIdentityIssue, EmployeeMetrics, ParseIssue, PayrollRecord, RowAnomaly } from '../data/types'
 
-type DashboardData = { records: PayrollRecord[]; summary: ReturnType<typeof calculateSummary>; employees: EmployeeMetrics[]; rowAnomalies: RowAnomaly[]; identityIssues: EmployeeIdentityIssue[] }
+type DashboardData = { records: PayrollRecord[]; summary: ReturnType<typeof calculateSummary>; employees: EmployeeMetrics[]; rowAnomalies: RowAnomaly[]; anomalyCounts: ReturnType<typeof calculateAnomalyAffectedRowCounts>; identityIssues: EmployeeIdentityIssue[] }
 const TABS = [
   { id: 'summary', label: 'Summary Statistics' },
   { id: 'employees', label: 'Employee Overviews' },
@@ -46,11 +46,13 @@ function App() {
       .then((csv) => {
         const result = parsePayrollCsv(csv)
         if (!result.ok) { setIssues(result.issues); return }
+        const rowAnomalies = detectRowAnomalies(result.records)
         setData({
           records: result.records,
           summary: calculateSummary(result.records),
-          employees: calculateEmployeeMetrics(result.records),
-          rowAnomalies: detectRowAnomalies(result.records),
+          employees: calculateEmployeeMetrics(result.records, rowAnomalies),
+          rowAnomalies,
+          anomalyCounts: calculateAnomalyAffectedRowCounts(rowAnomalies),
           identityIssues: detectNameInconsistencies(result.records),
         })
       })
@@ -59,13 +61,6 @@ function App() {
   }, [])
 
   const summary = data?.summary
-  const reasonCounts = useMemo(() => {
-    const counts = new Map<string, number>()
-    data?.rowAnomalies.forEach((row) => {
-      for (const code of new Set(row.reasons.map((reason) => reason.code))) counts.set(code, (counts.get(code) ?? 0) + 1)
-    })
-    return counts
-  }, [data])
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) {
     let nextIndex: number | null = null
@@ -102,9 +97,11 @@ function App() {
         >{tab.label}</button>)}
       </nav>
       <section id="dashboard-panel-summary" className="tab-panel" role="tabpanel" aria-labelledby="dashboard-tab-summary" hidden={activeTab !== 'summary'}>
+        {summary.recordCount === 0 ? <div className="empty-state"><h2>No payroll records found</h2><p>The CSV has a valid header but contains no payroll rows. Summary statistics, employee metrics, and anomaly counts are unavailable until records are present.</p></div> : <>
         <section className="intro"><div><h2>Recorded payroll at a glance</h2><p>As-recorded amounts across {summary.recordCount} weekly payroll rows.</p></div>
-          <div className="date-range"><span>WEEK ENDINGS</span><strong>{dateFormat.format(summary.weekStart)} – {dateFormat.format(summary.weekEnd)}</strong></div>
+          <div className="date-range"><span>WEEK ENDINGS</span><strong>{summary.weekStart && summary.weekEnd ? `${dateFormat.format(summary.weekStart)} – ${dateFormat.format(summary.weekEnd)}` : 'No recorded weeks'}</strong></div>
         </section>
+        <p className="reported-note">Amounts shown are reported values. Estimated benefits assume the benefits rate applies to all recorded hours.</p>
         <section className="metric-grid" aria-label="Payroll summary">
           <Card label="Wage spend" value={currency.format(summary.wageSpend)} note="Standard + overtime pay" />
           <Card label="Estimated benefits" value={currency.format(summary.estimatedBenefits)} note="Assumes benefits rate applies to all hours" />
@@ -115,31 +112,34 @@ function App() {
         </section>
         <section className="detail-strip">
           <div><span>Records</span><strong>{summary.recordCount}</strong></div>
-          <div><span>Daily hours, including zero days</span><strong>{number.format(summary.dailyHours.min)}–{number.format(summary.dailyHours.max)} <small>mean {number.format(summary.dailyHours.mean)}</small></strong></div>
+          <div><span>Daily hours, including zero days</span><strong>{summary.dailyHours ? `${number.format(summary.dailyHours.min)}–${number.format(summary.dailyHours.max)} ` : ''}<small>{summary.dailyHours ? `mean ${number.format(summary.dailyHours.mean)}` : 'No recorded days'}</small></strong></div>
           <div><span>Rows to review</span><strong>{data.rowAnomalies.length}</strong></div>
           <div><span>Name identity issues</span><strong>{data.identityIssues.length} employees</strong></div>
         </section>
-        <footer>All reported rows remain in as-recorded totals. No absent employee-weeks are synthesized.</footer>
+        <footer>All reported rows remain in as-recorded totals. Daily statistics include all seven days of recorded weeks, including zeros; missing weeks are excluded.</footer>
+        </>}
       </section>
       <section id="dashboard-panel-employees" className="tab-panel" role="tabpanel" aria-labelledby="dashboard-tab-employees" hidden={activeTab !== 'employees'}>
         <section className="panel">
           <div className="section-heading"><div><p className="eyebrow">EMPLOYEE DETAIL</p><h2>Recorded employee metrics</h2></div><span>Rate means are unweighted across recorded weeks</span></div>
-          <div className="table-wrap"><table><thead><tr><th>Employee</th><th>Weeks</th><th>Total hours</th><th>Wage spend</th><th>Daily hours<br /><small>min / mean / max</small></th><th>Standard rate<br /><small>min / mean / max</small></th><th>OT rate<br /><small>min / mean / max</small></th><th>Benefits rate<br /><small>min / mean / max</small></th></tr></thead>
-            <tbody>{data.employees.map((employee) => <tr key={employee.employeeId}><td>{employee.displayName}<small>ID {employee.employeeId} · {employee.level} · {employee.occupation}</small></td><td>{employee.weeksRecorded}</td><td>{number.format(employee.totalHours)}</td><td>{currency.format(employee.wageSpend)}</td><td>{employee.dailyHours.min.toFixed(1)} / {employee.dailyHours.mean.toFixed(1)} / {employee.dailyHours.max.toFixed(1)}</td>
+          <p className="table-note">Daily statistics include all seven days of recorded weeks, including zeros. Missing weeks are excluded.</p>
+          <div className="table-wrap"><table><thead><tr><th>Employee</th><th>Weeks</th><th>Flagged weeks</th><th>Total hours</th><th>Wage spend</th><th>Daily hours<br /><small>min / mean / max</small></th><th>Standard rate<br /><small>min / mean / max</small></th><th>OT rate<br /><small>min / mean / max</small></th><th>Benefits rate<br /><small>min / mean / max</small></th></tr></thead>
+            <tbody>{data.employees.map((employee) => <tr key={employee.employeeId}><td>{employee.displayName}<small>ID {employee.employeeId} · {employee.level} · {employee.occupation}</small></td><td>{employee.weeksRecorded}</td><td>{employee.flaggedWeeks}</td><td>{number.format(employee.totalHours)}</td><td>{currency.format(employee.wageSpend)}</td><td>{employee.dailyHours.min.toFixed(1)} / {employee.dailyHours.mean.toFixed(1)} / {employee.dailyHours.max.toFixed(1)}</td>
               {[employee.rates.standardRate, employee.rates.overtimeRate, employee.rates.benefitsRate].map((rate, index) => <td key={index}>{currency.format(rate.min)} / {currency.format(rate.mean)} / {currency.format(rate.max)}</td>)}</tr>)}</tbody></table></div>
+          {data.employees.length === 0 && <p className="empty-state compact">No employee records are available.</p>}
         </section>
       </section>
       <section id="dashboard-panel-anomalies" className="tab-panel" role="tabpanel" aria-labelledby="dashboard-tab-anomalies" hidden={activeTab !== 'anomalies'}>
         <section className="panel">
           <div className="section-heading"><div><p className="eyebrow">DATA QUALITY</p><h2>Review signals</h2></div><span>Heuristics for review, not legal or compliance conclusions</span></div>
           <div className="signals">
-            <div><span>Rate outlier rows</span><strong>{reasonCounts.get('rate-outlier') ?? 0}</strong></div>
-            <div><span>Long days</span><strong>{reasonCounts.get('long-day') ?? 0}</strong></div>
-            <div><span>Long weeks</span><strong>{reasonCounts.get('long-week') ?? 0}</strong></div>
-            <div><span>Invalid values</span><strong>{reasonCounts.get('invalid-value') ?? 0}</strong></div>
-            <div><span>Duplicate employee-weeks</span><strong>{reasonCounts.get('duplicate-employee-week') ?? 0}</strong></div>
+            <div><span>Rate outlier affected rows</span><strong>{data.anomalyCounts['rate-outlier']}</strong></div>
+            <div><span>Long-day affected rows</span><strong>{data.anomalyCounts['long-day']}</strong></div>
+            <div><span>Long-week affected rows</span><strong>{data.anomalyCounts['long-week']}</strong></div>
+            <div><span>Invalid-value affected rows</span><strong>{data.anomalyCounts['invalid-value']}</strong></div>
+            <div><span>Duplicate employee-week affected rows</span><strong>{data.anomalyCounts['duplicate-employee-week']}</strong></div>
           </div>
-          {data.identityIssues.length > 0 && <div className="identity-list"><h3>Employee name variations</h3>{data.identityIssues.map((issue) => <p key={issue.employeeId}><b>ID {issue.employeeId}</b> · {issue.variants.join(' / ')} <small>Rows {issue.sourceRows.join(', ')}</small></p>)}</div>}
+          {data.identityIssues.length > 0 && <div className="identity-list"><h3>Employee name variations</h3>{data.identityIssues.map((issue) => <div className="identity-issue" key={issue.employeeId}><p><b>Employee ID {issue.employeeId}</b></p><ul>{issue.variants.map((variant) => <li key={variant.name}><span>{JSON.stringify(variant.name)}</span> · {variant.occurrences} occurrences · source rows {variant.sourceRows.join(', ')}</li>)}</ul></div>)}</div>}
           <div className="table-wrap"><table><thead><tr><th>Source row</th><th>Employee</th><th>Week ending</th><th>Review reasons</th></tr></thead>
             <tbody>{data.rowAnomalies.map((row) => <tr key={row.sourceRow}><td>#{row.sourceRow}</td><td>{row.employeeNameOriginal} <small>ID {row.employeeId}</small></td><td>{dateFormat.format(row.weekEnding)}</td><td>{row.reasons.map((reason, index) => <span className="tag" key={`${reason.code}-${reason.column ?? reason.day ?? index}`}>{reason.message}</span>)}</td></tr>)}
               {data.rowAnomalies.length === 0 && <tr><td colSpan={4}>No row-level review signals found.</td></tr>}</tbody>

@@ -17,6 +17,11 @@ h1 { font-size: 22px; line-height: 1.2; }
 .intro { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 34px 0 20px; }
 .intro h2,.section-heading h2 { font-size: 21px; }
 .intro p { color: #71818b; margin-top: 5px; font-size: 13px; }
+.reported-note,.table-note { color: #75858e; font-size: 11px; margin: 0 0 14px; }
+.empty-state { margin: 26px 0; padding: 24px; border: 1px solid #e3e9eb; border-radius: 13px; background: #fff; color: #526671; }
+.empty-state h2 { color: #172b3b; font-size: 18px; margin-bottom: 7px; }
+.empty-state p { font-size: 13px; line-height: 1.55; }
+.empty-state.compact { margin: 14px 0 0; padding: 14px; }
 .date-range { text-align: right; }
 .date-range span,.detail-strip span { display: block; font-size: 10px; letter-spacing: .1em; font-weight: 700; color: #72838d; margin-bottom: 6px; }
 .date-range strong { font-size: 13px; }
@@ -42,6 +47,9 @@ h1 { font-size: 22px; line-height: 1.2; }
 .identity-list { padding: 14px 0 4px; }
 .identity-list h3 { font-size: 13px; margin-bottom: 8px; }
 .identity-list p { padding: 6px 0; color: #526671; font-size: 12px; }
+.identity-issue { padding: 5px 0 9px; }
+.identity-issue ul { list-style: none; margin: 0; padding: 0 0 0 12px; }
+.identity-issue li { padding: 4px 0; color: #526671; font-size: 11px; overflow-wrap: anywhere; }
 .identity-list small { color: #929da3; padding-left: 8px; }
 .table-wrap { width: 100%; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }

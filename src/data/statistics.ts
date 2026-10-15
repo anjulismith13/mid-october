@@ -1,4 +1,4 @@
-import type { EmployeeMetrics, PayrollRecord, PayrollSummary, RangeStats } from './types'
+import type { EmployeeMetrics, PayrollRecord, PayrollSummary, RangeStats, RowAnomaly } from './types'
 
 function rangeStats(values: number[]): RangeStats {
   const min = Math.min(...values)
@@ -33,8 +33,8 @@ export function calculateSummary(records: PayrollRecord[]): PayrollSummary {
     recordCount: records.length,
     employeeCount: new Set(records.map((row) => row.employeeId)).size,
     distinctWeekCount: weeks.length,
-    weekStart: new Date(weeks[0]),
-    weekEnd: new Date(weeks[weeks.length - 1]),
+    weekStart: weeks.length ? new Date(weeks[0]) : null,
+    weekEnd: weeks.length ? new Date(weeks[weeks.length - 1]) : null,
     standardHours,
     overtimeHours,
     totalHours,
@@ -42,12 +42,18 @@ export function calculateSummary(records: PayrollRecord[]): PayrollSummary {
     estimatedBenefits: records.reduce((sum, row) => sum + row.estimatedBenefits, 0),
     overtimeShare: totalHours === 0 ? 0 : overtimeHours / totalHours,
     apprenticeShare: totalHours === 0 ? 0 : apprenticeHours / totalHours,
-    dailyHours: rangeStats(dayTotals),
+    dailyHours: dayTotals.length ? rangeStats(dayTotals) : null,
   }
 }
 
-export function calculateEmployeeMetrics(records: PayrollRecord[]): EmployeeMetrics[] {
+export function calculateEmployeeMetrics(records: PayrollRecord[], rowAnomalies: RowAnomaly[] = []): EmployeeMetrics[] {
   const grouped = new Map<string, PayrollRecord[]>()
+  const flaggedWeeksByEmployee = new Map<string, Set<number>>()
+  for (const anomaly of rowAnomalies) {
+    const flaggedWeeks = flaggedWeeksByEmployee.get(anomaly.employeeId) ?? new Set<number>()
+    flaggedWeeks.add(anomaly.weekEnding.getTime())
+    flaggedWeeksByEmployee.set(anomaly.employeeId, flaggedWeeks)
+  }
   for (const record of records) {
     const list = grouped.get(record.employeeId) ?? []
     list.push(record)
@@ -62,6 +68,7 @@ export function calculateEmployeeMetrics(records: PayrollRecord[]): EmployeeMetr
       level: mode(rows.map((row) => row.level.trim())),
       occupation: mode(rows.map((row) => row.occupation.trim())),
       weeksRecorded: new Set(rows.map((row) => row.weekEnding.getTime())).size,
+      flaggedWeeks: flaggedWeeksByEmployee.get(employeeId)?.size ?? 0,
       totalHours: rows.reduce((sum, row) => sum + row.totalHours, 0),
       wageSpend: rows.reduce((sum, row) => sum + row.wageSpend, 0),
       dailyHours: rangeStats(rows.flatMap((row) => row.daily.map((day) => day.total))),

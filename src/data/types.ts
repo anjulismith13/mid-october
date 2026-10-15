@@ -44,6 +44,11 @@ export interface AnomalyReason {
   message: string
   column?: string
   day?: Day
+  actualRate?: number
+  medianRate?: number
+  deviationPercent?: number
+  standardHours?: number
+  overtimeHours?: number
 }
 
 export interface RowAnomaly {
@@ -56,7 +61,7 @@ export interface RowAnomaly {
 
 export interface EmployeeIdentityIssue {
   employeeId: string
-  variants: string[]
+  variants: Array<{ name: string; occurrences: number; sourceRows: number[] }>
   sourceRows: number[]
 }
 
@@ -68,6 +73,7 @@ export interface EmployeeMetrics {
   level: string
   occupation: string
   weeksRecorded: number
+  flaggedWeeks: number
   totalHours: number
   wageSpend: number
   dailyHours: RangeStats
@@ -78,8 +84,8 @@ export interface PayrollSummary {
   recordCount: number
   employeeCount: number
   distinctWeekCount: number
-  weekStart: Date
-  weekEnd: Date
+  weekStart: Date | null
+  weekEnd: Date | null
   standardHours: number
   overtimeHours: number
   totalHours: number
@@ -87,5 +93,5 @@ export interface PayrollSummary {
   estimatedBenefits: number
   overtimeShare: number
   apprenticeShare: number
-  dailyHours: RangeStats
+  dailyHours: RangeStats | null
 }
