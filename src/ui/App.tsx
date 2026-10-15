@@ -1,10 +1,7 @@
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { calculateAnomalyAffectedRowCounts, detectNameInconsistencies, detectRowAnomalies } from '../data/anomalies'
-import { parsePayrollCsv } from '../data/parsePayroll'
-import { calculateEmployeeMetrics, calculateSummary } from '../data/statistics'
-import type { EmployeeIdentityIssue, EmployeeMetrics, ParseIssue, PayrollRecord, RowAnomaly } from '../data/types'
+import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { prepareDashboardCsv, preparePayrollFile, type DashboardData } from '../data/prepareDashboard'
+import type { ParseIssue } from '../data/types'
 
-type DashboardData = { records: PayrollRecord[]; summary: ReturnType<typeof calculateSummary>; employees: EmployeeMetrics[]; rowAnomalies: RowAnomaly[]; anomalyCounts: ReturnType<typeof calculateAnomalyAffectedRowCounts>; identityIssues: EmployeeIdentityIssue[] }
 const TABS = [
   { id: 'summary', label: 'Summary Statistics' },
   { id: 'employees', label: 'Employee Overviews' },
@@ -34,31 +31,81 @@ function App() {
   const [issues, setIssues] = useState<ParseIssue[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [activeFilename, setActiveFilename] = useState('payroll_data.csv')
+  const [isSampleData, setIsSampleData] = useState(true)
   const [activeTab, setActiveTab] = useState<TabId>('summary')
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const requestIdRef = useRef(0)
+
+  const beginLoad = useCallback((filename: string, sample: boolean) => {
+    const requestId = ++requestIdRef.current
+    setActiveFilename(filename)
+    setIsSampleData(sample)
+    setData(null)
+    setIssues(null)
+    setLoadError(null)
+    setLoading(true)
+    return requestId
+  }, [])
+
+  const commitPreparation = useCallback((requestId: number, preparation: ReturnType<typeof prepareDashboardCsv>) => {
+    if (requestId !== requestIdRef.current) return
+    if (preparation.ok) {
+      setData(preparation.data)
+      setIssues(null)
+    } else {
+      setData(null)
+      setIssues(preparation.issues)
+    }
+    setLoadError(null)
+  }, [])
+
+  const failLoad = useCallback((requestId: number, error: unknown, fallback: string) => {
+    if (requestId !== requestIdRef.current) return
+    setData(null)
+    setIssues(null)
+    setLoadError(error instanceof Error ? error.message : fallback)
+  }, [])
+
+  const finishLoad = useCallback((requestId: number) => {
+    if (requestId === requestIdRef.current) setLoading(false)
+  }, [])
+
+  const loadSample = useCallback(async () => {
+    const requestId = beginLoad('payroll_data.csv', true)
+    try {
+      const response = await fetch('/payroll_data.csv')
+      if (!response.ok) throw new Error(`Could not load payroll_data.csv (${response.status}).`)
+      const csv = await response.text()
+      commitPreparation(requestId, prepareDashboardCsv(csv))
+    } catch (error: unknown) {
+      failLoad(requestId, error, 'Could not load the payroll data.')
+    } finally {
+      finishLoad(requestId)
+    }
+  }, [beginLoad, commitPreparation, failLoad, finishLoad])
 
   useEffect(() => {
-    fetch('/payroll_data.csv')
-      .then((response) => {
-        if (!response.ok) throw new Error(`Could not load payroll_data.csv (${response.status}).`)
-        return response.text()
-      })
-      .then((csv) => {
-        const result = parsePayrollCsv(csv)
-        if (!result.ok) { setIssues(result.issues); return }
-        const rowAnomalies = detectRowAnomalies(result.records)
-        setData({
-          records: result.records,
-          summary: calculateSummary(result.records),
-          employees: calculateEmployeeMetrics(result.records, rowAnomalies),
-          rowAnomalies,
-          anomalyCounts: calculateAnomalyAffectedRowCounts(rowAnomalies),
-          identityIssues: detectNameInconsistencies(result.records),
-        })
-      })
-      .catch((error: unknown) => setLoadError(error instanceof Error ? error.message : 'Could not load the payroll data.'))
-      .finally(() => setLoading(false))
-  }, [])
+    void loadSample()
+    return () => { requestIdRef.current += 1 }
+  }, [loadSample])
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget
+    const file = input.files?.[0]
+    if (!file) return
+    input.value = ''
+    const requestId = beginLoad(file.name, false)
+    try {
+      const loaded = await preparePayrollFile(file)
+      if (requestId !== requestIdRef.current) return
+      commitPreparation(requestId, loaded.preparation)
+    } catch (error: unknown) {
+      failLoad(requestId, error, `Could not read ${file.name}.`)
+    } finally {
+      finishLoad(requestId)
+    }
+  }
 
   const summary = data?.summary
 
@@ -76,8 +123,8 @@ function App() {
   }
 
   return <main className="shell">
-    <header className="topbar"><div className="mark">P</div><div><p className="eyebrow">DASHBOARD</p><h1>Payroll Analysis</h1></div><span className="source-label">Bundled CSV · browser processed</span></header>
-    {loading && <div className="loading">Loading payroll records…</div>}
+    <header className="topbar"><div className="mark">P</div><div><p className="eyebrow">DASHBOARD</p><h1>Payroll Analysis</h1></div><span className="source-label">{isSampleData ? 'Bundled sample · browser processed' : 'Selected CSV · browser processed'}</span></header>
+    {loading && <div className="loading" role="status">Loading payroll records…</div>}
     {loadError && <section className="load-error"><h2>Unable to load data</h2><p>{loadError}</p></section>}
     {issues && <IssueList issues={issues} />}
     {data && summary && <>
@@ -147,6 +194,20 @@ function App() {
         </section>
       </section>
     </>}
+    <section className="dataset-controls" aria-label="Payroll data controls">
+      <div className="file-picker">
+        <label htmlFor="payroll-csv-file">Choose a payroll CSV</label>
+        <input id="payroll-csv-file" type="file" accept=".csv,text/csv" onChange={handleFileChange} aria-describedby="csv-local-note" />
+        <p id="csv-local-note">CSV files are processed in this browser and are not uploaded.</p>
+      </div>
+      <div className="dataset-status">
+        <button type="button" className="restore-button" onClick={() => void loadSample()}>Restore sample data</button>
+        <div className="active-dataset" aria-live="polite">
+          <span>Active file</span><strong title={activeFilename}>{activeFilename}</strong>
+          <span>Records</span><strong>{data ? data.records.length : loading ? 'Loading…' : issues || loadError ? 'Unavailable' : '—'}</strong>
+        </div>
+      </div>
+    </section>
   </main>
 }
 
