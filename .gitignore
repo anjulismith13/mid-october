@@ -1,0 +1,10 @@
+# Candidate materials
+candidate-email*.md
+
+# Build output and dependencies
+dist/
+node_modules/
+.pnpm-store/
+
+# Local operating-system files
+.DS_Store
