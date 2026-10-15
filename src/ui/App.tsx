@@ -121,9 +121,9 @@ function App() {
       </section>
       <section id="dashboard-panel-employees" className="tab-panel" role="tabpanel" aria-labelledby="dashboard-tab-employees" hidden={activeTab !== 'employees'}>
         <section className="panel">
-          <div className="section-heading"><div><p className="eyebrow">EMPLOYEE DETAIL</p><h2>Recorded employee metrics</h2></div><span>Rate means are unweighted across recorded weeks</span></div>
+          <div className="section-heading"><div><p className="eyebrow">EMPLOYEE DETAIL</p><h2>Recorded employee metrics</h2></div></div>
           <p className="table-note">Daily statistics include all seven days of recorded weeks, including zeros. Missing weeks are excluded.</p>
-          <div className="table-wrap"><table><thead><tr><th>Employee</th><th>Weeks</th><th>Flagged weeks</th><th>Total hours</th><th>Wage spend</th><th>Daily hours<br /><small>min / mean / max</small></th><th>Standard rate<br /><small>min / mean / max</small></th><th>OT rate<br /><small>min / mean / max</small></th><th>Benefits rate<br /><small>min / mean / max</small></th></tr></thead>
+          <div className="table-wrap"><table><thead><tr><th>Employee</th><th>Weeks</th><th>Flagged weeks</th><th>Total hours</th><th>Wage spend</th><th>Daily hours<br /><small>min / mean / max</small></th><th>Standard rate<br /><small>min / mean / max</small></th><th>Overtime rate<br /><small>min / mean / max</small></th><th>Benefits rate<br /><small>min / mean / max</small></th></tr></thead>
             <tbody>{data.employees.map((employee) => <tr key={employee.employeeId}><td>{employee.displayName}<small>ID {employee.employeeId} · {employee.level} · {employee.occupation}</small></td><td>{employee.weeksRecorded}</td><td>{employee.flaggedWeeks}</td><td>{number.format(employee.totalHours)}</td><td>{currency.format(employee.wageSpend)}</td><td>{employee.dailyHours.min.toFixed(1)} / {employee.dailyHours.mean.toFixed(1)} / {employee.dailyHours.max.toFixed(1)}</td>
               {[employee.rates.standardRate, employee.rates.overtimeRate, employee.rates.benefitsRate].map((rate, index) => <td key={index}>{currency.format(rate.min)} / {currency.format(rate.mean)} / {currency.format(rate.max)}</td>)}</tr>)}</tbody></table></div>
           {data.employees.length === 0 && <p className="empty-state compact">No employee records are available.</p>}
