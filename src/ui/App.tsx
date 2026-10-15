@@ -1,5 +1,6 @@
 import { type ChangeEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { prepareDashboardCsv, preparePayrollFile, type DashboardData } from '../data/prepareDashboard'
+import { sortEmployees, type EmployeeSortKey, type SortDirection } from '../data/employeeSorting'
 import type { AnomalyCode, ParseIssue } from '../data/types'
 
 const TABS = [
@@ -8,6 +9,13 @@ const TABS = [
   { id: 'anomalies', label: 'Anomaly Detection' },
 ] as const
 type TabId = (typeof TABS)[number]['id']
+const EMPLOYEE_SORT_COLUMNS: Array<{ key: EmployeeSortKey; label: string }> = [
+  { key: 'displayName', label: 'Employee' },
+  { key: 'weeksRecorded', label: 'Weeks recorded' },
+  { key: 'flaggedWeeks', label: 'Flagged weeks' },
+  { key: 'totalHours', label: 'Total hours' },
+  { key: 'wageSpend', label: 'Wage spend' },
+]
 
 const ANOMALY_TYPES: Array<{ code: AnomalyCode; label: string; tone: string }> = [
   { code: 'rate-outlier', label: 'Rate outlier', tone: 'rate-outlier' },
@@ -42,6 +50,7 @@ function App() {
   const [activeFilename, setActiveFilename] = useState('payroll_data.csv')
   const [isSampleData, setIsSampleData] = useState(true)
   const [activeTab, setActiveTab] = useState<TabId>('summary')
+  const [employeeSort, setEmployeeSort] = useState<{ key: EmployeeSortKey; direction: SortDirection }>({ key: 'displayName', direction: 'ascending' })
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const requestIdRef = useRef(0)
 
@@ -116,6 +125,7 @@ function App() {
   }
 
   const summary = data?.summary
+  const sortedEmployees = data ? sortEmployees(data.employees, employeeSort.key, employeeSort.direction) : []
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) {
     let nextIndex: number | null = null
@@ -178,8 +188,8 @@ function App() {
         <section className="panel">
           <div className="section-heading"><div><p className="eyebrow">EMPLOYEE DETAIL</p><h2>Recorded employee metrics</h2></div></div>
           <p className="table-note">Daily statistics include all seven days of recorded weeks, including zeros. Missing weeks are excluded.</p>
-          <div className="table-wrap"><table><thead><tr><th>Employee</th><th>Weeks</th><th>Flagged weeks</th><th>Total hours</th><th>Wage spend</th><th>Daily hours<br /><small>min / mean / max</small></th><th>Standard rate<br /><small>min / mean / max</small></th><th>Overtime rate<br /><small>min / mean / max</small></th><th>Benefits rate<br /><small>min / mean / max</small></th></tr></thead>
-            <tbody>{data.employees.map((employee) => <tr key={employee.employeeId}><td>{employee.displayName}<small>ID {employee.employeeId} · {employee.level} · {employee.occupation}</small></td><td>{employee.weeksRecorded}</td><td>{employee.flaggedWeeks}</td><td>{number.format(employee.totalHours)}</td><td>{currency.format(employee.wageSpend)}</td><td>{employee.dailyHours.min.toFixed(1)} / {employee.dailyHours.mean.toFixed(1)} / {employee.dailyHours.max.toFixed(1)}</td>
+          <div className="table-wrap"><table><thead><tr>{EMPLOYEE_SORT_COLUMNS.map(({ key, label }) => <th key={key} aria-sort={employeeSort.key === key ? employeeSort.direction : undefined}><button className="sort-button" type="button" onClick={() => setEmployeeSort((current) => current.key === key ? { key, direction: current.direction === 'ascending' ? 'descending' : 'ascending' } : { key, direction: 'ascending' })}>{label}<span aria-hidden="true">{employeeSort.key === key ? employeeSort.direction === 'ascending' ? ' ↑' : ' ↓' : ' ↕'}</span></button></th>)}<th>Daily hours<br /><small>min / mean / max</small></th><th>Standard rate<br /><small>min / mean / max</small></th><th>Overtime rate<br /><small>min / mean / max</small></th><th>Benefits rate<br /><small>min / mean / max</small></th></tr></thead>
+            <tbody>{sortedEmployees.map((employee) => <tr key={employee.employeeId}><td>{employee.displayName}<small>ID {employee.employeeId} · {employee.level} · {employee.occupation}</small></td><td>{employee.weeksRecorded}</td><td>{employee.flaggedWeeks}</td><td>{number.format(employee.totalHours)}</td><td>{currency.format(employee.wageSpend)}</td><td>{employee.dailyHours.min.toFixed(1)} / {employee.dailyHours.mean.toFixed(1)} / {employee.dailyHours.max.toFixed(1)}</td>
               {[employee.rates.standardRate, employee.rates.overtimeRate, employee.rates.benefitsRate].map((rate, index) => <td key={index}>{currency.format(rate.min)} / {currency.format(rate.mean)} / {currency.format(rate.max)}</td>)}</tr>)}</tbody></table></div>
           {data.employees.length === 0 && <p className="empty-state compact">No employee records are available.</p>}
         </section>

@@ -72,6 +72,9 @@ h1 { font-size: 22px; line-height: 1.2; }
 .table-wrap { width: 100%; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
 th { color: #74858e; text-transform: uppercase; letter-spacing: .06em; font-size: 9px; font-weight: 700; padding: 12px 10px; border-bottom: 1px solid #e8edef; white-space: nowrap; }
+.sort-button { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.sort-button:hover { color: #125e5a; }
+.sort-button:focus-visible { outline: 2px solid #126a65; outline-offset: 3px; border-radius: 3px; }
 td { vertical-align: top; padding: 11px 10px; border-bottom: 1px solid #eff2f3; color: #344c58; white-space: nowrap; }
 td small { display: block; margin-top: 3px; color: #92a0a6; font-size: 10px; }
 .tag { display: inline-block; white-space: normal; background: #fff3e6; border: 1px solid #f2dfca; color: #86571e; border-radius: 6px; padding: 4px 7px; margin: 0 4px 4px 0; font-size: 10px; max-width: 300px; }
